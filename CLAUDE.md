@@ -9,7 +9,7 @@ Scala 3 · ZIO 2 · fs2-kafka · FFmpeg (subprocess) · SBT
 - Effect system: ZIO 2 only. Never Future, cats-effect, or Akka/Pekko.
 - Kafka consumption: fs2-kafka with ZIO interop (zio-interop-cats). Never Kafka Streams DSL.
 - FFmpeg: invoked via zio-process as subprocess. Never Runtime.exec or ProcessBuilder.
-- HTTP client (external APIs): sttp with ZIO backend (zio-http or async-http-client).
+- HTTP (client + server): zio-http. Used for pre-signed URL download/upload and the health/metrics endpoints.
 - Config: zio-config-typesafe (application.conf). Never hardcode values.
 - Logging: zio-logging → structured JSON output.
 - Build: SBT with sbt-assembly for fat JAR. Scala 3.x only.

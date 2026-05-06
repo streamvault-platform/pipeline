@@ -28,13 +28,14 @@ jobs:
             | sudo tar xz -C /usr/local
           echo "/usr/local/sbt/bin" >> $GITHUB_PATH
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: |
             ~/.ivy2/cache
             ~/.sbt
             ~/.cache/coursier
-          key: ${{ runner.os }}-sbt-${{ hashFiles('**/build.sbt', '**/project/build.properties', '**/project/plugins.sbt') }}
+          key: ${{ runner.os }}-sbt-${{ hashFiles('**/build.sbt',
+            '**/project/build.properties', '**/project/plugins.sbt') }}
           restore-keys: ${{ runner.os }}-sbt-
 
       - name: Extract version from build.sbt
@@ -66,13 +67,14 @@ jobs:
             | sudo tar xz -C /usr/local
           echo "/usr/local/sbt/bin" >> $GITHUB_PATH
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: |
             ~/.ivy2/cache
             ~/.sbt
             ~/.cache/coursier
-          key: ${{ runner.os }}-sbt-${{ hashFiles('**/build.sbt', '**/project/build.properties', '**/project/plugins.sbt') }}
+          key: ${{ runner.os }}-sbt-${{ hashFiles('**/build.sbt',
+            '**/project/build.properties', '**/project/plugins.sbt') }}
           restore-keys: ${{ runner.os }}-sbt-
 
       - name: Run tests
@@ -129,10 +131,10 @@ jobs:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/streamvault-pipeline:${{ steps.tag.outputs.image_tag }}
+          tags: ghcr.io/${{ github.repository_owner }}/streamvault-pipeline:${{
+            steps.tag.outputs.image_tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
   # ── Notify infra repo so it can update image references ────────────────────
   # Requires a PAT (repo + workflow scope) stored as INFRA_DISPATCH_TOKEN.
   # The infra workflow listens for event-type: pipeline-image-published.
