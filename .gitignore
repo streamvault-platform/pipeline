@@ -1,0 +1,17 @@
+# sbt
+target/
+project/target/
+project/project/
+
+# Metals / BSP
+.metals/
+.bsp/
+.bloop/
+
+# IDEs
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db

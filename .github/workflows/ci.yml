@@ -1,0 +1,154 @@
+name: CI / CD
+
+on:
+  pull_request:
+  push:
+    branches: [ develop, release ]
+    tags: [ "v*" ]
+
+jobs:
+
+  # ── Compile & extract version (fail fast) ──────────────────────────────────
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    outputs:
+      app_version: ${{ steps.version.outputs.app_version }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v5
+        with:
+          java-version: "21"
+          distribution: "temurin"
+
+      - name: Install sbt
+        run: |
+          curl -fsSL "https://github.com/sbt/sbt/releases/download/v1.11.0/sbt-1.11.0.tgz" \
+            | sudo tar xz -C /usr/local
+          echo "/usr/local/sbt/bin" >> $GITHUB_PATH
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.ivy2/cache
+            ~/.sbt
+            ~/.cache/coursier
+          key: ${{ runner.os }}-sbt-${{ hashFiles('**/build.sbt', '**/project/build.properties', '**/project/plugins.sbt') }}
+          restore-keys: ${{ runner.os }}-sbt-
+
+      - name: Extract version from build.sbt
+        id: version
+        run: |
+          APP_VERSION=$(grep 'version\s*:=' build.sbt | head -1 \
+            | grep -o '"[^"]*"' | tr -d '"' | sed 's/-SNAPSHOT//')
+          echo "app_version=${APP_VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Compile
+        run: sbt compile
+
+  # ── Tests (zio-test; split into unit/IT once Testcontainers tests land) ────
+  test:
+    name: Tests
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v5
+        with:
+          java-version: "21"
+          distribution: "temurin"
+
+      - name: Install sbt
+        run: |
+          curl -fsSL "https://github.com/sbt/sbt/releases/download/v1.11.0/sbt-1.11.0.tgz" \
+            | sudo tar xz -C /usr/local
+          echo "/usr/local/sbt/bin" >> $GITHUB_PATH
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.ivy2/cache
+            ~/.sbt
+            ~/.cache/coursier
+          key: ${{ runner.os }}-sbt-${{ hashFiles('**/build.sbt', '**/project/build.properties', '**/project/plugins.sbt') }}
+          restore-keys: ${{ runner.os }}-sbt-
+
+      - name: Run tests
+        run: sbt test
+
+  # ── Build & push Docker image to GHCR ──────────────────────────────────────
+  # The multi-stage Dockerfile runs sbt assembly internally.
+  # GHA Docker layer cache covers the sbt dependency resolution layer.
+  docker:
+    name: Build & push image
+    needs: [ build, test ]
+    if: >
+      github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/release'
+      || github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image_tag: ${{ steps.tag.outputs.image_tag }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Compute image tag
+        id: tag
+        run: |
+          VERSION="${{ needs.build.outputs.app_version }}"
+          if [[ "${{ github.ref }}" == "refs/heads/develop" ]]; then
+            echo "image_tag=${VERSION}-dev" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == "refs/heads/release" ]]; then
+            echo "image_tag=${VERSION}-rc.${{ github.run_number }}" >> $GITHUB_OUTPUT
+          else
+            TAG_VERSION="${GITHUB_REF_NAME#v}"
+            if [ "${TAG_VERSION}" != "${VERSION}" ]; then
+              echo "Tag (${TAG_VERSION}) does not match build.sbt version (${VERSION})" >&2
+              exit 1
+            fi
+            echo "image_tag=${VERSION}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build and push
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/streamvault-pipeline:${{ steps.tag.outputs.image_tag }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ── Notify infra repo so it can update image references ────────────────────
+  # Requires a PAT (repo + workflow scope) stored as INFRA_DISPATCH_TOKEN.
+  # The infra workflow listens for event-type: pipeline-image-published.
+  # notify-infra:
+  #   name: Notify infra
+  #   needs: [ docker ]
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: peter-evans/repository-dispatch@v4
+  #       with:
+  #         token: ${{ secrets.INFRA_DISPATCH_TOKEN }}
+  #         repository: streamvault-app/streamvault-infra
+  #         event-type: pipeline-image-published
+  #         client-payload: >
+  #           {
+  #             "image": "ghcr.io/${{ github.repository_owner }}/streamvault-pipeline:${{ needs.docker.outputs.image_tag }}",
+  #             "tag": "${{ needs.docker.outputs.image_tag }}",
+  #             "ref": "${{ github.ref }}"
+  #           }
