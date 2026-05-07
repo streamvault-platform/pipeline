@@ -11,7 +11,7 @@ final case class TrackUploadedEvent(
   downloadUrl:          String,
   uploadUrl:            String,
   transcodedStoredPath: String
-) derives JsonDecoder
+) derives JsonDecoder, JsonEncoder
 
 final case class MetadataReadyEvent(
   trackId:     UUID,
@@ -23,11 +23,11 @@ final case class MetadataReadyEvent(
   discNumber:  Option[Int],
   durationMs:  Option[Int],
   genre:       Option[String]
-) derives JsonEncoder
+) derives JsonEncoder, JsonDecoder
 
 final case class TranscodedEvent(
   trackId:        UUID,
   transcodedPath: String,
   mimeType:       String,
   fileSizeBytes:  Long
-) derives JsonEncoder
+) derives JsonEncoder, JsonDecoder

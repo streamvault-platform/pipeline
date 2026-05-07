@@ -9,7 +9,7 @@ import zio.json.*
 final class EventProducer(
   raw: KafkaProducer[Task, String, String],
   topics: KafkaTopicsConfig
-):
+) extends EventSink:
   def produceMetadataReady(event: MetadataReadyEvent): Task[Unit] =
     produce(topics.metadataReady, event.trackId.toString, event.toJson)
 

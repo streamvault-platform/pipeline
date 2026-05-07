@@ -7,7 +7,7 @@ import zio.*
 import zio.config.typesafe.TypesafeConfigProvider
 import zio.http.Server
 import zio.logging.consoleJsonLogger
-import zio.metrics.connectors.prometheus
+import zio.metrics.connectors.{MetricsConfig, prometheus}
 
 object Main extends ZIOAppDefault:
 
@@ -23,7 +23,7 @@ object Main extends ZIOAppDefault:
           FileDownloader.live,
           MediaUploadedConsumer.live,
           HealthServer.serverLayer,
-          MetricsConfig.defaultLayer,
+          ZLayer.fromZIO(ZIO.serviceWith[AppConfig](cfg => MetricsConfig(cfg.server.metricsInterval))),
           prometheus.prometheusLayer,
           prometheus.publisherLayer
         )

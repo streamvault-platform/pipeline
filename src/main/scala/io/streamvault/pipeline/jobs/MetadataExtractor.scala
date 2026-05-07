@@ -1,7 +1,7 @@
 package io.streamvault.pipeline.jobs
 
 import io.streamvault.pipeline.domain.{MetadataReadyEvent, TrackUploadedEvent}
-import io.streamvault.pipeline.infra.EventProducer
+import io.streamvault.pipeline.infra.EventSink
 import org.jaudiotagger.audio.AudioFileIO
 import org.jaudiotagger.tag.FieldKey
 import zio.*
@@ -10,7 +10,7 @@ import java.nio.file.Path
 
 object MetadataExtractor:
 
-  def extract(event: TrackUploadedEvent, audioFile: Path, ep: EventProducer): Task[Unit] =
+  def extract(event: TrackUploadedEvent, audioFile: Path, ep: EventSink): Task[Unit] =
     for
       metadata <- ZIO.attemptBlocking(readTags(event, audioFile))
                     .tapError(e => ZIO.logError(s"Tag extraction failed trackId=${event.trackId}: $e"))

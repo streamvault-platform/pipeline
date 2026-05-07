@@ -48,9 +48,44 @@ jobs:
       - name: Compile
         run: sbt compile
 
-  # ── Tests (zio-test; split into unit/IT once Testcontainers tests land) ────
-  test:
-    name: Tests
+  # ── Unit tests (no Docker; ffmpeg required for TranscoderSpec) ───────────────
+  unit-test:
+    name: Unit Tests
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v5
+        with:
+          java-version: "21"
+          distribution: "temurin"
+
+      - name: Install sbt
+        run: |
+          curl -fsSL "https://github.com/sbt/sbt/releases/download/v1.11.0/sbt-1.11.0.tgz" \
+            | sudo tar xz -C /usr/local
+          echo "/usr/local/sbt/bin" >> $GITHUB_PATH
+
+      - name: Install ffmpeg
+        run: sudo apt-get install -y ffmpeg
+
+      - uses: actions/cache@v5
+        with:
+          path: |
+            ~/.ivy2/cache
+            ~/.sbt
+            ~/.cache/coursier
+          key: ${{ runner.os }}-sbt-${{ hashFiles('**/build.sbt',
+            '**/project/build.properties', '**/project/plugins.sbt') }}
+          restore-keys: ${{ runner.os }}-sbt-
+
+      - name: Run unit tests
+        run: sbt unit-test
+
+  # ── Integration tests (Kafka via Testcontainers; Docker pre-installed on ubuntu-latest) ──
+  integration-test:
+    name: Integration Tests
     needs: build
     runs-on: ubuntu-latest
     steps:
@@ -77,15 +112,15 @@ jobs:
             '**/project/build.properties', '**/project/plugins.sbt') }}
           restore-keys: ${{ runner.os }}-sbt-
 
-      - name: Run tests
-        run: sbt test
+      - name: Run integration tests
+        run: sbt integration-test
 
   # ── Build & push Docker image to GHCR ──────────────────────────────────────
   # The multi-stage Dockerfile runs sbt assembly internally.
   # GHA Docker layer cache covers the sbt dependency resolution layer.
   docker:
     name: Build & push image
-    needs: [ build, test ]
+    needs: [ build, unit-test, integration-test ]
     if: >
       github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/release'
       || github.ref_type == 'tag'

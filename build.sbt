@@ -23,8 +23,13 @@ lazy val root = (project in file("."))
       "dev.zio" %% "zio-process" % "0.8.0",
       "dev.zio" %% "zio-metrics-connectors-prometheus" % "2.5.5",
       "dev.zio" %% "zio-test" % zioVersion % Test,
-      "dev.zio" %% "zio-test-sbt" % zioVersion % Test
+      "dev.zio" %% "zio-test-sbt" % zioVersion % Test,
+      "org.testcontainers" % "kafka" % "1.21.4" % Test,
+      "org.wiremock" % "wiremock-standalone" % "3.9.2" % Test
     ),
+
+    fork := true,
+    Test / javaOptions ++= Seq("-Djava.net.preferIPv4Stack=true"),
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
     assembly / mainClass := Some("io.streamvault.pipeline.Main"),
     assembly / assemblyMergeStrategy := {
@@ -32,3 +37,13 @@ lazy val root = (project in file("."))
       case _                        => MergeStrategy.first
     }
   )
+
+// unit-test  : fast, no Docker required (ffmpeg must be on PATH for TranscoderSpec)
+// integration: needs Docker — Kafka via Testcontainers
+addCommandAlias("unit-test",
+  "testOnly io.streamvault.pipeline.domain.EventSerializationSpec " +
+           "io.streamvault.pipeline.jobs.MetadataExtractorSpec " +
+           "io.streamvault.pipeline.jobs.TranscoderSpec")
+addCommandAlias("integration-test",
+  "testOnly io.streamvault.pipeline.infra.EventProducerSpec " +
+           "io.streamvault.pipeline.consumer.MediaUploadedConsumerIntegrationSpec")

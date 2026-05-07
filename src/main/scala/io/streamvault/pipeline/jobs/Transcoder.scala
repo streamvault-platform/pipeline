@@ -1,7 +1,7 @@
 package io.streamvault.pipeline.jobs
 
 import io.streamvault.pipeline.domain.{TrackUploadedEvent, TranscodedEvent}
-import io.streamvault.pipeline.infra.EventProducer
+import io.streamvault.pipeline.infra.EventSink
 import zio.*
 import zio.process.*
 
@@ -13,7 +13,7 @@ object Transcoder:
 
   private val httpClient = HttpClient.newHttpClient()
 
-  def transcode(event: TrackUploadedEvent, audioFile: Path, ep: EventProducer): Task[Unit] =
+  def transcode(event: TrackUploadedEvent, audioFile: Path, ep: EventSink): Task[Unit] =
     ZIO.scoped {
       for
         outFile <- tempOutputFile()

@@ -17,7 +17,7 @@ final case class KafkaConfig(
   topics:           KafkaTopicsConfig
 )
 
-final case class ServerConfig(port: Int)
+final case class ServerConfig(port: Int, metricsInterval: Duration)
 
 final case class AppConfig(kafka: KafkaConfig, server: ServerConfig)
 
