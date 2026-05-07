@@ -32,8 +32,7 @@ USER pipeline
 # All config comes from env at runtime (docker-compose / Helm values)
 # See application.conf for local-dev defaults (localhost:9092)
 
-# Health + metrics endpoint (added when /health is wired up)
-# EXPOSE 8080
+EXPOSE 8080
 
 ENTRYPOINT ["java", \
     "-XX:MaxRAMPercentage=75.0", \

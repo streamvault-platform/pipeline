@@ -15,3 +15,5 @@ project/project/
 # OS
 .DS_Store
 Thumbs.db
+
+implementation-brief.md
