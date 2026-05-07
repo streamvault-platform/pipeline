@@ -25,7 +25,7 @@ RUN apt-get update \
 RUN useradd -r -u 1001 -g root pipeline
 WORKDIR /app
 
-COPY --from=builder /build/target/scala-3.8.3/streamvault-pipeline-assembly-*.jar app.jar
+COPY --from=builder /build/target/scala-3.8.3/app.jar app.jar
 
 USER pipeline
 

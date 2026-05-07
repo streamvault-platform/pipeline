@@ -31,7 +31,8 @@ lazy val root = (project in file("."))
     fork := true,
     Test / javaOptions ++= Seq("-Djava.net.preferIPv4Stack=true"),
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
-    assembly / mainClass := Some("io.streamvault.pipeline.Main"),
+    assembly / mainClass    := Some("io.streamvault.pipeline.Main"),
+    assembly / assemblyJarName := "app.jar",
     assembly / assemblyMergeStrategy := {
       case PathList("META-INF", _*) => MergeStrategy.discard
       case _                        => MergeStrategy.first
