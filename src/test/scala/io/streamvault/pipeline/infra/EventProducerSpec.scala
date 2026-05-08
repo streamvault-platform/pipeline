@@ -21,7 +21,7 @@ object EventProducerSpec extends ZIOSpecDefault:
     val settings = ProducerSettings[Task, String, String].withBootstrapServers(bs)
     KafkaProducer
       .stream(settings)
-      .evalMap(raw => f(EventProducer(raw, cfg)))
+      .evalMap(raw => f(EventProducer(raw, cfg, bs)))
       .take(1)
       .compile
       .lastOrError

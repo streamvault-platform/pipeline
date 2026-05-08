@@ -4,6 +4,7 @@ import zio.*
 import java.net.http.{HttpClient, HttpRequest, HttpResponse}
 import java.net.URI
 import java.nio.file.{Files, Path}
+import java.time.Duration as JDuration
 
 trait FileDownloader:
   def download(url: String, suffix: String): ZIO[Scope, Throwable, Path]
@@ -17,14 +18,19 @@ object FileDownloader:
 
 private final class LiveFileDownloader() extends FileDownloader:
 
-  private val httpClient = HttpClient.newHttpClient()
+  private val httpClient = HttpClient.newBuilder()
+    .connectTimeout(JDuration.ofSeconds(10))
+    .build()
 
   def download(rawUrl: String, suffix: String): ZIO[Scope, Throwable, Path] =
     for
       tempFile <- ZIO.acquireRelease(
                     ZIO.attemptBlocking(Files.createTempFile("sv-", suffix))
                   )(path => ZIO.attemptBlocking(Files.deleteIfExists(path)).ignore)
-      request   = HttpRequest.newBuilder(URI.create(rawUrl)).GET().build()
+      request   = HttpRequest.newBuilder(URI.create(rawUrl))
+                    .GET()
+                    .timeout(JDuration.ofSeconds(30))
+                    .build()
       response <- ZIO.attemptBlocking(
                     httpClient.send(request, HttpResponse.BodyHandlers.ofFile(tempFile))
                   )

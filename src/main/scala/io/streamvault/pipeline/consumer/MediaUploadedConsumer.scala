@@ -25,7 +25,8 @@ private final class LiveMediaUploadedConsumer(cfg: AppConfig, downloader: FileDo
     extends MediaUploadedConsumer:
 
   private val consumerSettings =
-    ConsumerSettings[Task, String, String]
+    // Option[String] key — handles null keys (Core sends without a key)
+    ConsumerSettings[Task, Option[String], String]
       .withBootstrapServers(cfg.kafka.bootstrapServers)
       .withGroupId(cfg.kafka.consumerGroup)
       .withAutoOffsetReset(AutoOffsetReset.Earliest)
@@ -36,39 +37,42 @@ private final class LiveMediaUploadedConsumer(cfg: AppConfig, downloader: FileDo
       .withBootstrapServers(cfg.kafka.bootstrapServers)
 
   def consume: Task[Unit] =
-    KafkaProducer
-      .stream(producerSettings)
-      .flatMap { rawProducer =>
-        val ep = EventProducer(rawProducer, cfg.kafka.topics)
-        KafkaConsumer
-          .stream(consumerSettings)
-          .evalTap(_.subscribeTo(cfg.kafka.topics.mediaUploaded))
-          .flatMap { consumer =>
-            consumer.stream
-              .mapAsync(4) { committable =>
-                handleRecord(committable.record, ep)
-                  .as(committable.offset)
-              }
-          }
-      }
-      .through(commitBatchWithin(500, 15.seconds))
-      .compile
-      .drain
+    ZIO.logInfo(s"action=kafka_consumer_start topic=${cfg.kafka.topics.mediaUploaded} bootstrap=${cfg.kafka.bootstrapServers} group=${cfg.kafka.consumerGroup}") *>
+      KafkaProducer
+        .stream(producerSettings)
+        .flatMap { rawProducer =>
+          val ep = EventProducer(rawProducer, cfg.kafka.topics, cfg.kafka.bootstrapServers)
+          KafkaConsumer
+            .stream(consumerSettings)
+            .evalTap(_.subscribeTo(cfg.kafka.topics.mediaUploaded))
+            .flatMap { consumer =>
+              consumer.stream
+                .mapAsync(4) { committable =>
+                  handleRecord(committable.record, ep)
+                    .as(committable.offset)
+                }
+            }
+        }
+        .through(commitBatchWithin(500, 15.seconds))
+        .compile
+        .drain
 
   private def handleRecord(
-      record: ConsumerRecord[String, String],
+      record: ConsumerRecord[Option[String], String],
       ep: EventProducer
   ): Task[Unit] =
-    record.value.fromJson[TrackUploadedEvent] match
-      case Left(err) =>
-        ZIO.logWarning(s"Deserialization failed key=${record.key}: $err") *>
-          ep.sendToDlq(record.key, record.value)
-      case Right(event) =>
-        ZIO.logInfo(s"Received media.uploaded trackId=${event.trackId}") *>
-          processEvent(event, ep).catchAll { e =>
-            ZIO.logError(s"Processing failed trackId=${event.trackId}: $e") *>
-              ep.sendToDlq(record.key, record.value)
-          }
+    val keyStr = record.key.getOrElse("<null>")
+    ZIO.logDebug(s"action=kafka_consume topic=${cfg.kafka.topics.mediaUploaded} bootstrap=${cfg.kafka.bootstrapServers} key=$keyStr payload=${record.value}") *>
+      (record.value.fromJson[TrackUploadedEvent] match
+        case Left(err) =>
+          ZIO.logWarning(s"action=kafka_deserialize_failed topic=${cfg.kafka.topics.mediaUploaded} key=$keyStr error=$err") *>
+            ep.sendToDlq(record.key.orNull, record.value)
+        case Right(event) =>
+          ZIO.logInfo(s"action=kafka_consume_ok topic=${cfg.kafka.topics.mediaUploaded} bootstrap=${cfg.kafka.bootstrapServers} trackId=${event.trackId} filename=${event.originalFilename} mimeType=${event.mimeType} downloadUrl=${event.downloadUrl}") *>
+            processEvent(event, ep).catchAll { e =>
+              ZIO.logError(s"action=kafka_process_failed topic=${cfg.kafka.topics.mediaUploaded} trackId=${event.trackId} error=$e") *>
+                ep.sendToDlq(record.key.orNull, record.value)
+            })
 
   private def processEvent(event: TrackUploadedEvent, ep: EventProducer): Task[Unit] =
     val suffix = fileSuffix(event.originalFilename)

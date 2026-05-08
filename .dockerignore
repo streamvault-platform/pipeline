@@ -3,5 +3,6 @@
 .dockerignore
 *.md
 target/
+!target/pipeline.jar
 project/target/
 project/project/

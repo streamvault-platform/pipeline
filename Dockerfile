@@ -1,21 +1,6 @@
-# ── Build stage ────────────────────────────────────────────────────────────────
-FROM eclipse-temurin:21-jdk-jammy AS builder
-WORKDIR /build
-
-RUN curl -fsSL "https://github.com/sbt/sbt/releases/download/v1.11.0/sbt-1.11.0.tgz" \
-    | tar xz -C /usr/local
-ENV PATH="/usr/local/sbt/bin:$PATH"
-
-# Resolve deps before copying src — layer is cached unless build files change
-COPY project/ project/
-COPY build.sbt .
-RUN sbt update
-
-COPY src/ src/
-RUN sbt assembly
-
-# ── Runtime stage ──────────────────────────────────────────────────────────────
-FROM eclipse-temurin:21-jre-jammy AS runtime
+# Build the fat JAR before building this image: sbt assembly
+# ── Runtime image ──────────────────────────────────────────────────────────────
+FROM eclipse-temurin:21-jre-jammy
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ffmpeg \
@@ -25,7 +10,7 @@ RUN apt-get update \
 RUN useradd -r -u 1001 -g root pipeline
 WORKDIR /app
 
-COPY --from=builder /build/target/scala-3.8.3/app.jar app.jar
+COPY target/pipeline.jar app.jar
 
 USER pipeline
 

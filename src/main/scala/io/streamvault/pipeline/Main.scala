@@ -6,13 +6,13 @@ import io.streamvault.pipeline.infra.{FileDownloader, HealthServer}
 import zio.*
 import zio.config.typesafe.TypesafeConfigProvider
 import zio.http.Server
-import zio.logging.consoleJsonLogger
+import zio.logging.backend.SLF4J
 import zio.metrics.connectors.{MetricsConfig, prometheus}
 
 object Main extends ZIOAppDefault:
 
   override val bootstrap: ZLayer[ZIOAppArgs, Any, Any] =
-    (Runtime.removeDefaultLoggers >>> consoleJsonLogger()) ++
+    (Runtime.removeDefaultLoggers >>> SLF4J.slf4j) ++
       Runtime.setConfigProvider(TypesafeConfigProvider.fromResourcePath())
 
   override def run: ZIO[Any, Any, Any] =

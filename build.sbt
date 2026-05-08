@@ -12,6 +12,9 @@ lazy val root = (project in file("."))
       "dev.zio" %% "zio" % zioVersion,
       "dev.zio" %% "zio-streams" % zioVersion,
       "dev.zio" %% "zio-logging" % zioLoggingVersion,
+      "dev.zio" %% "zio-logging-slf4j2" % zioLoggingVersion,
+      "ch.qos.logback" % "logback-classic" % "1.5.18",
+      "net.logstash.logback" % "logstash-logback-encoder" % "8.1",
       "dev.zio" %% "zio-config" % zioConfigVersion,
       "dev.zio" %% "zio-config-typesafe" % zioConfigVersion,
       "dev.zio" %% "zio-config-magnolia" % zioConfigVersion,
@@ -31,11 +34,12 @@ lazy val root = (project in file("."))
     fork := true,
     Test / javaOptions ++= Seq("-Djava.net.preferIPv4Stack=true"),
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
-    assembly / mainClass    := Some("io.streamvault.pipeline.Main"),
-    assembly / assemblyJarName := "app.jar",
+    assembly / mainClass        := Some("io.streamvault.pipeline.Main"),
+    assembly / assemblyOutputPath := file("target/pipeline.jar"),
     assembly / assemblyMergeStrategy := {
-      case PathList("META-INF", _*) => MergeStrategy.discard
-      case _                        => MergeStrategy.first
+      case PathList("META-INF", "services", _*) => MergeStrategy.concat  // SPI providers (SLF4J, etc.)
+      case PathList("META-INF", _*)             => MergeStrategy.discard
+      case _                                    => MergeStrategy.first
     }
   )
 
