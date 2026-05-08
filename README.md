@@ -1,6 +1,6 @@
 # streamvault-pipeline
 
-[![CI](https://github.com/streamvault-app/streamvault-pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/streamvault-app/streamvault-pipeline/actions/workflows/ci.yml)
+[![CI](https://github.com/streamvault-platform/pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/streamvault-platform/pipeline/actions/workflows/ci.yml)
 ![Scala](https://img.shields.io/badge/scala-3.x-red)
 ![ZIO](https://img.shields.io/badge/zio-2.x-green)
 ![License](https://img.shields.io/badge/license-Apache%202.0-blue)
