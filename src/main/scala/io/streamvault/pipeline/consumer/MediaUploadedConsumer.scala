@@ -69,10 +69,12 @@ private final class LiveMediaUploadedConsumer(cfg: AppConfig, downloader: FileDo
             ep.sendToDlq(record.key.orNull, record.value)
         case Right(event) =>
           ZIO.logInfo(s"action=kafka_consume_ok topic=${cfg.kafka.topics.mediaUploaded} bootstrap=${cfg.kafka.bootstrapServers} trackId=${event.trackId} filename=${event.originalFilename} mimeType=${event.mimeType} downloadUrl=${event.downloadUrl}") *>
-            processEvent(event, ep).catchAll { e =>
-              ZIO.logError(s"action=kafka_process_failed topic=${cfg.kafka.topics.mediaUploaded} trackId=${event.trackId} error=$e") *>
-                ep.sendToDlq(record.key.orNull, record.value)
-            })
+            processEvent(event, ep)
+              .timeoutFail(new Exception("processing timeout after 15 min"))(15.minutes)
+              .catchAll { e =>
+                ZIO.logError(s"action=kafka_process_failed topic=${cfg.kafka.topics.mediaUploaded} trackId=${event.trackId} error=$e") *>
+                  ep.sendToDlq(record.key.orNull, record.value)
+              })
 
   private def processEvent(event: TrackUploadedEvent, ep: EventProducer): Task[Unit] =
     val suffix = fileSuffix(event.originalFilename)

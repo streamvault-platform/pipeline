@@ -8,10 +8,13 @@ import zio.process.*
 import java.net.URI
 import java.net.http.{HttpClient, HttpRequest, HttpResponse}
 import java.nio.file.{Files, Path}
+import java.time.Duration as JDuration
 
 object Transcoder:
 
-  private val httpClient = HttpClient.newHttpClient()
+  private val httpClient = HttpClient.newBuilder()
+    .connectTimeout(JDuration.ofSeconds(10))
+    .build()
 
   def transcode(event: TrackUploadedEvent, audioFile: Path, ep: EventSink): Task[Unit] =
     ZIO.scoped {
@@ -38,6 +41,7 @@ object Transcoder:
 
   private def runFfmpeg(input: Path, output: Path): Task[Unit] =
     Command("ffmpeg",
+      "-timelimit", "600",   // hard kill after 10 min — guards against corrupt/infinite input
       "-i", input.toString,
       "-c:a", "aac",
       "-b:a", "128k",
@@ -59,6 +63,7 @@ object Transcoder:
       val request = HttpRequest.newBuilder(URI.create(uploadUrl))
         .PUT(HttpRequest.BodyPublishers.ofFile(file))
         .header("Content-Type", "audio/aac")
+        .timeout(JDuration.ofMinutes(10))
         .build()
       val response = httpClient.send(request, HttpResponse.BodyHandlers.discarding())
       if response.statusCode() / 100 != 2 then
