@@ -31,6 +31,7 @@ lazy val root = (project in file("."))
       "org.wiremock" % "wiremock-standalone" % "3.9.2" % Test
     ),
 
+    scalacOptions += "-java-output-version:25",
     fork := true,
     Test / javaOptions ++= Seq("-Djava.net.preferIPv4Stack=true"),
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),

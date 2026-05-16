@@ -1,6 +1,6 @@
 # Build the fat JAR before building this image: sbt assembly
 # ── Runtime image ──────────────────────────────────────────────────────────────
-FROM eclipse-temurin:21-jre-jammy
+FROM eclipse-temurin:25-jre-jammy
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ffmpeg \
