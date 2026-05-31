@@ -43,6 +43,7 @@ object Transcoder:
     Command("ffmpeg",
       "-timelimit", "600",   // hard kill after 10 min — guards against corrupt/infinite input
       "-i", input.toString,
+      "-vn",                 // drop video streams (e.g. H.264 album art in MP3s)
       "-c:a", "aac",
       "-b:a", "128k",
       "-y", output.toString

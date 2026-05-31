@@ -21,8 +21,10 @@ object MediaUploadedConsumer:
   def consume: ZIO[MediaUploadedConsumer, Throwable, Unit] =
     ZIO.serviceWithZIO[MediaUploadedConsumer](_.consume)
 
-private final class LiveMediaUploadedConsumer(cfg: AppConfig, downloader: FileDownloader)
-    extends MediaUploadedConsumer:
+private final class LiveMediaUploadedConsumer(
+    cfg: AppConfig,
+    downloader: FileDownloader
+) extends MediaUploadedConsumer:
 
   private val consumerSettings =
     // Option[String] key — handles null keys (Core sends without a key)
@@ -37,11 +39,17 @@ private final class LiveMediaUploadedConsumer(cfg: AppConfig, downloader: FileDo
       .withBootstrapServers(cfg.kafka.bootstrapServers)
 
   def consume: Task[Unit] =
-    ZIO.logInfo(s"action=kafka_consumer_start topic=${cfg.kafka.topics.mediaUploaded} bootstrap=${cfg.kafka.bootstrapServers} group=${cfg.kafka.consumerGroup}") *>
+    ZIO.logInfo(
+      s"action=kafka_consumer_start topic=${cfg.kafka.topics.mediaUploaded} bootstrap=${cfg.kafka.bootstrapServers} group=${cfg.kafka.consumerGroup}"
+    ) *>
       KafkaProducer
         .stream(producerSettings)
         .flatMap { rawProducer =>
-          val ep = EventProducer(rawProducer, cfg.kafka.topics, cfg.kafka.bootstrapServers)
+          val ep = EventProducer(
+            rawProducer,
+            cfg.kafka.topics,
+            cfg.kafka.bootstrapServers
+          )
           KafkaConsumer
             .stream(consumerSettings)
             .evalTap(_.subscribeTo(cfg.kafka.topics.mediaUploaded))
@@ -62,27 +70,56 @@ private final class LiveMediaUploadedConsumer(cfg: AppConfig, downloader: FileDo
       ep: EventProducer
   ): Task[Unit] =
     val keyStr = record.key.getOrElse("<null>")
-    ZIO.logDebug(s"action=kafka_consume topic=${cfg.kafka.topics.mediaUploaded} bootstrap=${cfg.kafka.bootstrapServers} key=$keyStr payload=${record.value}") *>
+    ZIO.logDebug(
+      s"action=kafka_consume topic=${cfg.kafka.topics.mediaUploaded} bootstrap=${cfg.kafka.bootstrapServers} key=$keyStr payload=${record.value}"
+    ) *>
       (record.value.fromJson[TrackUploadedEvent] match
         case Left(err) =>
-          ZIO.logWarning(s"action=kafka_deserialize_failed topic=${cfg.kafka.topics.mediaUploaded} key=$keyStr error=$err") *>
+          ZIO.logWarning(
+            s"action=kafka_deserialize_failed topic=${cfg.kafka.topics.mediaUploaded} key=$keyStr error=$err"
+          ) *>
             ep.sendToDlq(record.key.orNull, record.value)
+              .tapError(e =>
+                ZIO.logError(
+                  s"action=kafka_dlq_failed topic=${cfg.kafka.topics.mediaUploaded} key=$keyStr error=$e"
+                )
+              )
+              .ignore
         case Right(event) =>
-          ZIO.logInfo(s"action=kafka_consume_ok topic=${cfg.kafka.topics.mediaUploaded} bootstrap=${cfg.kafka.bootstrapServers} trackId=${event.trackId} filename=${event.originalFilename} mimeType=${event.mimeType} downloadUrl=${event.downloadUrl}") *>
+          ZIO.logInfo(
+            s"action=kafka_consume_ok topic=${cfg.kafka.topics.mediaUploaded} bootstrap=${cfg.kafka.bootstrapServers} trackId=${event.trackId} filename=${event.originalFilename} mimeType=${event.mimeType} downloadUrl=${event.downloadUrl}"
+          ) *>
             processEvent(event, ep)
-              .timeoutFail(new Exception("processing timeout after 15 min"))(15.minutes)
+              .timeoutFail(new Exception("processing timeout after 15 min"))(
+                15.minutes
+              )
               .catchAll { e =>
-                ZIO.logError(s"action=kafka_process_failed topic=${cfg.kafka.topics.mediaUploaded} trackId=${event.trackId} error=$e") *>
+                ZIO.logError(
+                  s"action=kafka_process_failed topic=${cfg.kafka.topics.mediaUploaded} trackId=${event.trackId} error=$e"
+                ) *>
                   ep.sendToDlq(record.key.orNull, record.value)
+                    .tapError(e2 =>
+                      ZIO.logError(
+                        s"action=kafka_dlq_failed topic=${cfg.kafka.topics.mediaUploaded} trackId=${event.trackId} error=$e2"
+                      )
+                    )
+                    .ignore
               })
 
-  private def processEvent(event: TrackUploadedEvent, ep: EventProducer): Task[Unit] =
+  private def processEvent(
+      event: TrackUploadedEvent,
+      ep: EventProducer
+  ): Task[Unit] =
     val suffix = fileSuffix(event.originalFilename)
     ZIO.scoped {
       downloader.download(event.downloadUrl, suffix).flatMap { audioFile =>
-        MetadataExtractor.extract(event, audioFile, ep)
-          .zipPar(Transcoder.transcode(event, audioFile, ep))
-          .unit
+        for
+          metadataFiber <- MetadataExtractor.extract(event, audioFile, ep).fork
+          transcodeExit <- Transcoder.transcode(event, audioFile, ep).exit
+          metadataExit <- metadataFiber.await
+          _ <- ZIO.done(transcodeExit)
+          _ <- ZIO.done(metadataExit)
+        yield ()
       }
     }
 

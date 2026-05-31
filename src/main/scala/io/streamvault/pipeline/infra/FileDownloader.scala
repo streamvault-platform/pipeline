@@ -29,7 +29,7 @@ private final class LiveFileDownloader() extends FileDownloader:
                   )(path => ZIO.attemptBlocking(Files.deleteIfExists(path)).ignore)
       request   = HttpRequest.newBuilder(URI.create(rawUrl))
                     .GET()
-                    .timeout(JDuration.ofSeconds(30))
+                    .timeout(JDuration.ofMinutes(5))
                     .build()
       response <- ZIO.attemptBlocking(
                     httpClient.send(request, HttpResponse.BodyHandlers.ofFile(tempFile))
