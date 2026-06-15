@@ -2,7 +2,7 @@ package io.streamvault.pipeline.infra
 
 import fs2.kafka.{KafkaProducer, ProducerRecord, ProducerRecords}
 import io.streamvault.pipeline.config.KafkaTopicsConfig
-import io.streamvault.pipeline.domain.{MetadataReadyEvent, TranscodedEvent}
+import io.streamvault.pipeline.domain.{MetadataReadyEvent, TranscodedEvent, WatchSyncReadyEvent}
 import zio.*
 import zio.json.*
 
@@ -19,9 +19,17 @@ final class EventProducer(
     ZIO.logDebug(s"action=kafka_publish topic=${topics.transcoded} bootstrap=$bootstrapServers key=${event.trackId} payload=${event.toJson}") *>
       produce(topics.transcoded, event.trackId.toString, event.toJson)
 
+  def produceWatchSyncReady(event: WatchSyncReadyEvent): Task[Unit] =
+    ZIO.logDebug(s"action=kafka_publish topic=${topics.watchSyncReady} bootstrap=$bootstrapServers key=${event.syncRequestId} deviceId=${event.deviceId}") *>
+      produce(topics.watchSyncReady, event.syncRequestId.toString, event.toJson)
+
   def sendToDlq(key: String, value: String): Task[Unit] =
     ZIO.logWarning(s"action=kafka_publish_dlq topic=${topics.mediaUploadedDlq} bootstrap=$bootstrapServers key=$key payload=$value") *>
       produce(topics.mediaUploadedDlq, key, value)
+
+  def sendToWatchSyncDlq(key: String, value: String): Task[Unit] =
+    ZIO.logWarning(s"action=kafka_publish_dlq topic=${topics.watchSyncDlq} bootstrap=$bootstrapServers key=$key payload=$value") *>
+      produce(topics.watchSyncDlq, key, value)
 
   private def produce(topic: String, key: String, value: String): Task[Unit] =
     raw.produce(ProducerRecords.one(ProducerRecord(topic, key, value))).flatten.unit

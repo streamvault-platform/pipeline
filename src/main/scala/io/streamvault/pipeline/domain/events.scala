@@ -31,3 +31,30 @@ final case class TranscodedEvent(
   mimeType:       String,
   fileSizeBytes:  Long
 ) derives JsonEncoder, JsonDecoder
+
+final case class WatchSyncRequestedEvent(
+  syncRequestId: UUID,
+  userId:        UUID,
+  deviceId:      String,
+  tracks:        List[WatchSyncRequestedEvent.TrackInfo]
+) derives JsonDecoder, JsonEncoder
+
+object WatchSyncRequestedEvent:
+  final case class TrackInfo(
+    trackId:     UUID,
+    downloadUrl: String
+  ) derives JsonDecoder, JsonEncoder
+
+final case class WatchSyncReadyEvent(
+  syncRequestId: UUID,
+  userId:        UUID,
+  deviceId:      String,
+  manifest:      List[WatchSyncReadyEvent.ManifestEntry]
+) derives JsonDecoder, JsonEncoder
+
+object WatchSyncReadyEvent:
+  final case class ManifestEntry(
+    trackId:       UUID,
+    downloadUrl:   String,
+    fileSizeBytes: Long
+  ) derives JsonDecoder, JsonEncoder

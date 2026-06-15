@@ -32,7 +32,9 @@ object KafkaContainerLayer:
           mediaUploadedDlq   = "media.uploaded.dlq",
           metadataReady      = "media.metadata-ready",
           transcoded         = "media.transcoded",
-          watchSyncRequested = "watch.sync-requested"
+          watchSyncRequested = "watch.sync-requested",
+          watchSyncReady     = "watch.sync-ready",
+          watchSyncDlq       = "watch.sync-requested.dlq"
         )
       ),
       server = ServerConfig(port = 8080, metricsInterval = 5.seconds)
