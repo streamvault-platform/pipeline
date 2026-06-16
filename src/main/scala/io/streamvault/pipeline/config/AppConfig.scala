@@ -4,11 +4,13 @@ import zio.*
 import zio.config.magnolia.deriveConfig
 
 final case class KafkaTopicsConfig(
-  mediaUploaded:     String,
-  mediaUploadedDlq:  String,
-  metadataReady:     String,
-  transcoded:        String,
-  watchSyncRequested: String
+  mediaUploaded:      String,
+  mediaUploadedDlq:   String,
+  metadataReady:      String,
+  transcoded:         String,
+  watchSyncRequested: String,
+  watchSyncReady:     String,
+  watchSyncDlq:       String
 )
 
 final case class KafkaConfig(

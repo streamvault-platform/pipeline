@@ -52,4 +52,5 @@ addCommandAlias("unit-test",
            "io.streamvault.pipeline.jobs.TranscoderSpec")
 addCommandAlias("integration-test",
   "testOnly io.streamvault.pipeline.infra.EventProducerSpec " +
-           "io.streamvault.pipeline.consumer.MediaUploadedConsumerIntegrationSpec")
+           "io.streamvault.pipeline.consumer.MediaUploadedConsumerIntegrationSpec " +
+           "io.streamvault.pipeline.consumer.WatchSyncConsumerIntegrationSpec")
