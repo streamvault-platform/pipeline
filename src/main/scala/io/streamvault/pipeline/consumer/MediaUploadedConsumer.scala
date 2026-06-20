@@ -1,6 +1,7 @@
 package io.streamvault.pipeline.consumer
 
 import fs2.kafka.*
+import io.streamvault.pipeline.RetryPolicy
 import io.streamvault.pipeline.config.AppConfig
 import io.streamvault.pipeline.domain.TrackUploadedEvent
 import io.streamvault.pipeline.infra.{EventProducer, FileDownloader}
@@ -90,6 +91,12 @@ private final class LiveMediaUploadedConsumer(
             s"action=kafka_consume_ok topic=${cfg.kafka.topics.mediaUploaded} bootstrap=${cfg.kafka.bootstrapServers} trackId=${event.trackId} filename=${event.originalFilename} mimeType=${event.mimeType} downloadUrl=${event.downloadUrl}"
           ) *>
             processEvent(event, ep)
+              .tapError(e =>
+                ZIO.logWarning(
+                  s"action=retry_triggered topic=${cfg.kafka.topics.mediaUploaded} trackId=${event.trackId} error=$e"
+                )
+              )
+              .retry(RetryPolicy.transient)
               .timeoutFail(new Exception("processing timeout after 15 min"))(
                 15.minutes
               )

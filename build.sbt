@@ -49,7 +49,8 @@ lazy val root = (project in file("."))
 addCommandAlias("unit-test",
   "testOnly io.streamvault.pipeline.domain.EventSerializationSpec " +
            "io.streamvault.pipeline.jobs.MetadataExtractorSpec " +
-           "io.streamvault.pipeline.jobs.TranscoderSpec")
+           "io.streamvault.pipeline.jobs.TranscoderSpec " +
+           "io.streamvault.pipeline.RetryPolicySpec")
 addCommandAlias("integration-test",
   "testOnly io.streamvault.pipeline.infra.EventProducerSpec " +
            "io.streamvault.pipeline.consumer.MediaUploadedConsumerIntegrationSpec " +

@@ -1,6 +1,7 @@
 package io.streamvault.pipeline.consumer
 
 import fs2.kafka.*
+import io.streamvault.pipeline.RetryPolicy
 import io.streamvault.pipeline.config.AppConfig
 import io.streamvault.pipeline.domain.{WatchSyncReadyEvent, WatchSyncRequestedEvent}
 import io.streamvault.pipeline.infra.EventProducer
@@ -82,6 +83,12 @@ private final class LiveWatchSyncConsumer(cfg: AppConfig) extends WatchSyncConsu
             s"action=kafka_consume_ok topic=${cfg.kafka.topics.watchSyncRequested} syncRequestId=${event.syncRequestId} deviceId=${event.deviceId} trackCount=${event.tracks.size}"
           ) *>
             processEvent(event, ep)
+              .tapError(e =>
+                ZIO.logWarning(
+                  s"action=retry_triggered topic=${cfg.kafka.topics.watchSyncRequested} syncRequestId=${event.syncRequestId} error=$e"
+                )
+              )
+              .retry(RetryPolicy.transient)
               .timeoutFail(new Exception("watch sync processing timeout after 5 min"))(5.minutes)
               .catchAll { e =>
                 ZIO.logError(
